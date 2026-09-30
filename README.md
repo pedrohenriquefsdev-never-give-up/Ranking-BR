@@ -1,4 +1,4 @@
-# Ranking BR — v0.2.8
+# Ranking BR — v0.2.9
 
 Versão funcional da plataforma de ranking das cooperativas BR, construída com Next.js, Vercel e Firebase.
 
@@ -35,6 +35,8 @@ Versão funcional da plataforma de ranking das cooperativas BR, construída com 
 - busca de executivos, equipes e cooperativas, com filtro por equipe;
 - auditoria do fechamento com arquivos Leves e Truck, responsável, data e validações;
 - exportação do ranking completo em Excel e PDF;
+- valores monetários exportados ao Excel como números editáveis no padrão brasileiro;
+- linhas alternadas nas tabelas para facilitar a leitura horizontal;
 - download da arte em PNG.
 
 ## Privacidade e armazenamento
@@ -116,7 +118,7 @@ npm run dev
 
 Depois acesse `http://localhost:3000`.
 
-## Regras fixadas para a v0.2.8
+## Regras fixadas para a v0.2.9
 
 - toda linha produzida no período entra no ranking, independentemente da situação atual do veículo;
 - situações como `ATIVO`, `C.A.T. - EVENTO COLISÃO`, pendências e demais estados informados pelo SGA são consideradas;

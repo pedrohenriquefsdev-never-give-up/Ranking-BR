@@ -1,5 +1,13 @@
 # Histórico de versões
 
+## v0.2.9 — Hotfix visual e exportação numérica
+
+- alternância entre linhas claras e levemente acinzentadas nas tabelas;
+- adaptação da alternância de linhas aos temas claro e escuro;
+- previsão de faturamento e ticket médio exibidos com vírgula decimal no arquivo Excel;
+- valores monetários exportados como células numéricas, permitindo formatação, soma, filtros e fórmulas;
+- alinhamento numérico à direita e linhas alternadas também no arquivo exportado.
+
 ## v0.2.8 — Produção do período em todas as situações
 
 - inclusão de toda placa produzida no período, independentemente da situação atual no SGA;

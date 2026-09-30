@@ -14,15 +14,79 @@ function safeFileName(value: string) {
   return value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-zA-Z0-9_-]+/g, "-").replace(/^-|-$/g, "").toLowerCase();
 }
 
-function escapeHtml(value: string | number) {
+function escapeXml(value: string | number) {
   return String(value).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
 
+type ExcelCellKind = "text" | "integer" | "decimal";
+
+function excelCell(value: string | number, kind: ExcelCellKind = "text", striped = false) {
+  const style = `${striped ? "Stripe" : ""}${kind === "text" ? "Text" : kind === "integer" ? "Integer" : "Decimal"}`;
+  if (kind === "text") return `<Cell ss:StyleID="${style}"><Data ss:Type="String">${escapeXml(value)}</Data></Cell>`;
+  const numeric = Number(value);
+  const safeValue = Number.isFinite(numeric) ? numeric : 0;
+  return `<Cell ss:StyleID="${style}"><Data ss:Type="Number">${safeValue}</Data></Cell>`;
+}
+
+function excelHeaderCell(value: string) {
+  return `<Cell ss:StyleID="Header"><Data ss:Type="String">${escapeXml(value)}</Data></Cell>`;
+}
+
+export function buildRankingExcelXml(ranking: Ranking) {
+  const executiveRows = ranking.entries.map((entry, index) => {
+    const ticket = typeof entry.averageTicket === "number" ? entry.averageTicket : (entry.plates ? entry.revenue / entry.plates : 0);
+    const striped = index % 2 === 1;
+    return `<Row>${excelCell(entry.position, "integer", striped)}${excelCell(entry.name, "text", striped)}${excelCell(entry.team, "text", striped)}${excelCell(entry.plates, "integer", striped)}${excelCell(entry.revenue ?? 0, "decimal", striped)}${excelCell(ticket, "decimal", striped)}${excelCell(entry.movement ?? 0, "integer", striped)}</Row>`;
+  }).join("");
+  const teamRows = (ranking.teamEntries ?? []).map((entry, index) => {
+    const ticket = typeof entry.averageTicket === "number" ? entry.averageTicket : (entry.plates ? entry.revenue / entry.plates : 0);
+    const striped = index % 2 === 1;
+    return `<Row>${excelCell(entry.position, "integer", striped)}${excelCell(entry.team, "text", striped)}${excelCell(entry.cooperativeCode ?? "", "text", striped)}${excelCell(entry.members ?? 0, "integer", striped)}${excelCell(entry.plates, "integer", striped)}${excelCell(entry.revenue ?? 0, "decimal", striped)}${excelCell(ticket, "decimal", striped)}${excelCell(entry.movement ?? 0, "integer", striped)}</Row>`;
+  }).join("");
+  const executiveHeader = ["Posição", "Executivo", "Equipe", "Placas", "Previsão", "Ticket médio", "Movimento"].map(excelHeaderCell).join("");
+  const teamHeader = ["Posição", "Equipe", "Cooperativa", "Participantes", "Placas", "Previsão", "Ticket médio", "Movimento"].map(excelHeaderCell).join("");
+
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<?mso-application progid="Excel.Sheet"?>
+<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">
+  <Styles>
+    <Style ss:ID="Default" ss:Name="Normal"><Alignment ss:Vertical="Center"/><Font ss:FontName="Arial" ss:Size="10"/></Style>
+    <Style ss:ID="Cell"><Alignment ss:Vertical="Center"/><Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#CFD3D7"/><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#CFD3D7"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#CFD3D7"/><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#CFD3D7"/></Borders></Style>
+    <Style ss:ID="Title"><Font ss:FontName="Arial" ss:Size="15" ss:Bold="1" ss:Color="#FFC400"/><Interior ss:Color="#17191D" ss:Pattern="Solid"/></Style>
+    <Style ss:ID="Label"><Font ss:Bold="1"/></Style>
+    <Style ss:ID="Header" ss:Parent="Cell"><Font ss:Bold="1" ss:Color="#17191D"/><Interior ss:Color="#FFC400" ss:Pattern="Solid"/></Style>
+    <Style ss:ID="Text" ss:Parent="Cell"/>
+    <Style ss:ID="Integer" ss:Parent="Cell"><Alignment ss:Horizontal="Right" ss:Vertical="Center"/><NumberFormat ss:Format="0"/></Style>
+    <Style ss:ID="Decimal" ss:Parent="Cell"><Alignment ss:Horizontal="Right" ss:Vertical="Center"/><NumberFormat ss:Format="#,##0.00"/></Style>
+    <Style ss:ID="StripeText" ss:Parent="Cell"><Interior ss:Color="#F5F6F7" ss:Pattern="Solid"/></Style>
+    <Style ss:ID="StripeInteger" ss:Parent="Integer"><Interior ss:Color="#F5F6F7" ss:Pattern="Solid"/></Style>
+    <Style ss:ID="StripeDecimal" ss:Parent="Decimal"><Interior ss:Color="#F5F6F7" ss:Pattern="Solid"/></Style>
+  </Styles>
+  <Worksheet ss:Name="Resumo">
+    <Table>
+      <Column ss:Width="150"/><Column ss:Width="240"/>
+      <Row ss:Height="28"><Cell ss:StyleID="Title" ss:MergeAcross="1"><Data ss:Type="String">Ranking BR · ${escapeXml(ranking.label)}</Data></Cell></Row>
+      <Row><Cell ss:StyleID="Label"><Data ss:Type="String">Período</Data></Cell><Cell><Data ss:Type="String">${escapeXml(formatDate(ranking.periodStart))} a ${escapeXml(formatDate(ranking.periodEnd))}</Data></Cell></Row>
+      <Row><Cell ss:StyleID="Label"><Data ss:Type="String">Responsável</Data></Cell><Cell><Data ss:Type="String">${escapeXml(ranking.createdByName || "Não informado")}</Data></Cell></Row>
+      <Row><Cell ss:StyleID="Label"><Data ss:Type="String">Placas produzidas</Data></Cell><Cell ss:StyleID="Integer"><Data ss:Type="Number">${Number(ranking.totalVehicles) || 0}</Data></Cell></Row>
+      <Row><Cell ss:StyleID="Label"><Data ss:Type="String">Executivos</Data></Cell><Cell ss:StyleID="Integer"><Data ss:Type="Number">${Number(ranking.totalExecutives) || 0}</Data></Cell></Row>
+      <Row><Cell ss:StyleID="Label"><Data ss:Type="String">Previsão total</Data></Cell><Cell ss:StyleID="Decimal"><Data ss:Type="Number">${Number(ranking.totalRevenue) || 0}</Data></Cell></Row>
+    </Table>
+  </Worksheet>
+  <Worksheet ss:Name="Executivos">
+    <Table><Column ss:Width="58"/><Column ss:Width="190"/><Column ss:Width="150"/><Column ss:Width="65"/><Column ss:Width="90"/><Column ss:Width="90"/><Column ss:Width="70"/><Row>${executiveHeader}</Row>${executiveRows}</Table>
+    <WorksheetOptions xmlns="urn:schemas-microsoft-com:office:excel"><FreezePanes/><FrozenNoSplit/><SplitHorizontal>1</SplitHorizontal><TopRowBottomPane>1</TopRowBottomPane><ActivePane>2</ActivePane></WorksheetOptions>
+  </Worksheet>
+  <Worksheet ss:Name="Equipes">
+    <Table><Column ss:Width="58"/><Column ss:Width="190"/><Column ss:Width="90"/><Column ss:Width="82"/><Column ss:Width="65"/><Column ss:Width="90"/><Column ss:Width="90"/><Column ss:Width="70"/><Row>${teamHeader}</Row>${teamRows}</Table>
+    <WorksheetOptions xmlns="urn:schemas-microsoft-com:office:excel"><FreezePanes/><FrozenNoSplit/><SplitHorizontal>1</SplitHorizontal><TopRowBottomPane>1</TopRowBottomPane><ActivePane>2</ActivePane></WorksheetOptions>
+  </Worksheet>
+</Workbook>`;
+}
+
 export function exportRankingExcel(ranking: Ranking) {
-  const executiveRows = ranking.entries.map((entry) => { const ticket = typeof entry.averageTicket === "number" ? entry.averageTicket : (entry.plates ? entry.revenue / entry.plates : 0); return `<tr><td>${entry.position}º</td><td>${escapeHtml(entry.name)}</td><td>${escapeHtml(entry.team)}</td><td>${entry.plates}</td><td>${Number(entry.revenue ?? 0).toFixed(2)}</td><td>${ticket.toFixed(2)}</td><td>${entry.movement ?? 0}</td></tr>`; }).join("");
-  const teamRows = (ranking.teamEntries ?? []).map((entry) => { const ticket = typeof entry.averageTicket === "number" ? entry.averageTicket : (entry.plates ? entry.revenue / entry.plates : 0); return `<tr><td>${entry.position}º</td><td>${escapeHtml(entry.team)}</td><td>${escapeHtml(entry.cooperativeCode ?? "")}</td><td>${entry.members ?? 0}</td><td>${entry.plates}</td><td>${Number(entry.revenue ?? 0).toFixed(2)}</td><td>${ticket.toFixed(2)}</td><td>${entry.movement ?? 0}</td></tr>`; }).join("");
-  const html = `<!doctype html><html><head><meta charset="utf-8"><style>body{font-family:Arial,sans-serif;color:#17191d}h1{background:#17191d;color:#ffc400;padding:18px}h2{margin-top:28px}table{border-collapse:collapse;width:100%}th{background:#ffc400;color:#17191d}th,td{border:1px solid #cfd3d7;padding:8px;text-align:left}.meta{margin:14px 0;color:#555}</style></head><body><h1>Ranking BR · ${escapeHtml(ranking.label)}</h1><div class="meta">Período: ${formatDate(ranking.periodStart)} a ${formatDate(ranking.periodEnd)} · Responsável: ${escapeHtml(ranking.createdByName || "Não informado")}</div><div class="meta">Placas produzidas: ${ranking.totalVehicles} · Previsão total: ${escapeHtml(formatCurrency(ranking.totalRevenue))}</div><h2>Ranking de executivos</h2><table><thead><tr><th>Posição</th><th>Executivo</th><th>Equipe</th><th>Placas</th><th>Previsão</th><th>Ticket médio</th><th>Movimento</th></tr></thead><tbody>${executiveRows}</tbody></table><h2>Ranking de equipes</h2><table><thead><tr><th>Posição</th><th>Equipe</th><th>Cooperativa</th><th>Participantes</th><th>Placas</th><th>Previsão</th><th>Ticket médio</th><th>Movimento</th></tr></thead><tbody>${teamRows}</tbody></table></body></html>`;
-  downloadBlob(["\ufeff", html], "application/vnd.ms-excel;charset=utf-8", `ranking-br-${safeFileName(ranking.label)}.xls`);
+  const xml = buildRankingExcelXml(ranking);
+  downloadBlob(["\ufeff", xml], "application/vnd.ms-excel;charset=utf-8", `ranking-br-${safeFileName(ranking.label)}-excel.xml`);
 }
 
 type PdfLine = { text: string; bold?: boolean; size?: number; color?: "dark" | "yellow" | "muted" };
