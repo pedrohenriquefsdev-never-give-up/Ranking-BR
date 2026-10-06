@@ -36,6 +36,7 @@ export function ImportPanel() {
   }, [configured]);
 
   const totalRevenue = useMemo(() => entries.reduce((sum, entry) => sum + entry.revenue, 0), [entries]);
+  const selectedFileCount = Number(Boolean(levesFile)) + Number(Boolean(truckFile));
   const unconfiguredTeams = teams.filter((team) => !team.configurada && report?.rows.some((row) => row.cooperativaCodigo === team.codigoCooperativa));
 
   const reset = () => {
@@ -51,13 +52,13 @@ export function ImportPanel() {
   };
 
   async function processFiles() {
-    if (!levesFile || !truckFile) return;
+    if (!levesFile && !truckFile) return;
     setProcessing(true);
     setError("");
     try {
       const [levesReport, truckReport] = await Promise.all([
-        parseManagementReport(levesFile),
-        parseManagementReport(truckFile),
+        levesFile?.size ? parseManagementReport(levesFile) : Promise.resolve(null),
+        truckFile?.size ? parseManagementReport(truckFile) : Promise.resolve(null),
       ]);
       const parsed = await mergeManagementReports(levesReport, truckReport);
       const [latest, executiveItems, teamItems] = configured
@@ -158,7 +159,7 @@ export function ImportPanel() {
 
         <aside className="panel report-audit">
           <span className="section-kicker">Auditoria da leitura</span>
-          <h3>Leves + Truck</h3>
+          <h3>{report.sourceReports?.length === 2 ? "Leves + Truck" : "Relatório processado"}</h3>
           {report.sourceReports?.map((source) => (
             <section className="audit-source" key={source.system}>
               <strong>{source.system === "LEVES" ? "SGA Leves" : "SGA Truck"}</strong>
@@ -178,7 +179,7 @@ export function ImportPanel() {
               {Object.entries(report.statusCounts).map(([status, count]) => <div key={status}><dt>{status}</dt><dd>{count}</dd></div>)}
             </dl>
           </section>
-          <p>Os dois arquivos foram lidos apenas no navegador. Nomes de associados, placas e chassis não serão gravados no Firebase.</p>
+          <p>{report.sourceReports?.length === 2 ? "Os dois arquivos foram lidos" : "O arquivo foi lido"} apenas no navegador. Nomes de associados, placas e chassis não serão gravados no Firebase.</p>
         </aside>
       </div>
     );
@@ -187,7 +188,7 @@ export function ImportPanel() {
   return (
     <div className="two-column-layout">
       <section className="panel import-card">
-        <div className="panel__header"><div><span className="section-kicker">Etapa 1 de 3</span><h3>Adicionar os dois relatórios</h3></div></div>
+        <div className="panel__header"><div><span className="section-kicker">Etapa 1 de 3</span><h3>Adicionar relatórios</h3><p>Envie pelo menos um arquivo. O Truck é opcional quando não houver produção.</p></div></div>
         <div className="dual-upload-grid">
           <section className="upload-source-card">
             <span className="upload-source-card__label">1 · SGA Leves</span>
@@ -206,14 +207,14 @@ export function ImportPanel() {
             {levesFile ? (
               <div className="selected-file">
                 <FileSpreadsheet size={24} />
-                <div><strong>{levesFile.name}</strong><span>{(levesFile.size / 1024).toFixed(1)} KB · pronto</span></div>
+                <div><strong>{levesFile.name}</strong><span>{(levesFile.size / 1024).toFixed(1)} KB · {levesFile.size ? "pronto" : "vazio · será ignorado"}</span></div>
                 <button className="icon-button" aria-label="Remover relatório de Leves" onClick={() => setLevesFile(null)}><X size={18} /></button>
               </div>
             ) : <div className="empty-file-note">Relatório de Leves não selecionado.</div>}
           </section>
 
           <section className="upload-source-card">
-            <span className="upload-source-card__label">2 · SGA Truck</span>
+            <span className="upload-source-card__label">2 · SGA Truck · opcional</span>
             <button
               className="dropzone dropzone--compact"
               onClick={() => truckInputRef.current?.click()}
@@ -229,7 +230,7 @@ export function ImportPanel() {
             {truckFile ? (
               <div className="selected-file">
                 <FileSpreadsheet size={24} />
-                <div><strong>{truckFile.name}</strong><span>{(truckFile.size / 1024).toFixed(1)} KB · pronto</span></div>
+                <div><strong>{truckFile.name}</strong><span>{(truckFile.size / 1024).toFixed(1)} KB · {truckFile.size ? "pronto" : "vazio · será ignorado"}</span></div>
                 <button className="icon-button" aria-label="Remover relatório de Truck" onClick={() => setTruckFile(null)}><X size={18} /></button>
               </div>
             ) : <div className="empty-file-note">Relatório de Truck não selecionado.</div>}
@@ -239,8 +240,8 @@ export function ImportPanel() {
         {error && <div className="notice notice--error"><AlertCircle size={19} /><span>{error}</span></div>}
         <div className="form-actions">
           <button className="button button--ghost" onClick={reset}>Limpar</button>
-          <button className="button button--primary" disabled={!levesFile || !truckFile || processing} onClick={processFiles}>
-            {processing ? <><LoaderCircle className="spin" size={18} /> Consolidando...</> : "Processar os dois relatórios"}
+          <button className="button button--primary" disabled={selectedFileCount === 0 || processing} onClick={processFiles}>
+            {processing ? <><LoaderCircle className="spin" size={18} /> Processando...</> : selectedFileCount === 1 ? "Processar relatório" : "Consolidar relatórios"}
           </button>
         </div>
         <p className="feature-note">Nada será salvo antes da sua conferência e confirmação.</p>
@@ -250,11 +251,11 @@ export function ImportPanel() {
         <span className="section-kicker">Como funciona</span>
         <h3>Dos relatórios ao ranking</h3>
         <ol className="step-list">
-          <li><span>1</span><div><strong>Envie Leves e Truck</strong><p>Use um Gestão Adesão .xls de cada SGA.</p></div></li>
+          <li><span>1</span><div><strong>Envie Leves e/ou Truck</strong><p>Use pelo menos um Gestão Adesão .xls. Arquivo só com cabeçalho também é aceito.</p></div></li>
           <li><span>2</span><div><strong>Confira o consolidado</strong><p>Participantes iguais são somados automaticamente.</p></div></li>
           <li><span>3</span><div><strong>Confirme o fechamento</strong><p>Um único ranking combinado entra no histórico.</p></div></li>
         </ol>
-        <div className="security-box"><CheckCircle2 size={20} /><span>Somente o resultado consolidado é salvo. Os dois relatórios originais não são armazenados.</span></div>
+        <div className="security-box"><CheckCircle2 size={20} /><span>Somente o resultado consolidado é salvo. Os relatórios originais não são armazenados.</span></div>
       </aside>
     </div>
   );

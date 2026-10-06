@@ -1,5 +1,14 @@
 # Histórico de versões
 
+## v0.2.10 — Hotfix para relatório Truck sem produção
+
+- processamento liberado com apenas um relatório, Leves ou Truck;
+- relatório Truck passa a ser opcional quando não houver produção no período;
+- arquivo válido contendo somente o cabeçalho é aceito como fonte sem registros;
+- arquivo selecionado com zero bytes é ignorado quando o outro relatório possui produção;
+- auditoria registra somente as fontes efetivamente processadas e identifica arquivos sem produção;
+- bloqueio mantido quando nenhum dos relatórios possui registros válidos para o ranking.
+
 ## v0.2.9 — Hotfix visual e exportação numérica
 
 - alternância entre linhas claras e levemente acinzentadas nas tabelas;

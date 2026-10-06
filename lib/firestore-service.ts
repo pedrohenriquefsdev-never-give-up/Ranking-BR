@@ -182,7 +182,7 @@ export async function saveClosing({
   const database = requireDb();
   const importReference = doc(database, "imports", report.fileHash);
   if ((await getDoc(importReference)).exists()) {
-    throw new Error("Este mesmo par de relatórios já foi confirmado anteriormente.");
+    throw new Error("Este mesmo conjunto de relatórios já foi confirmado anteriormente.");
   }
 
   const existingExecutives = await listExecutives();
@@ -265,7 +265,7 @@ export async function saveClosing({
     sourceReports: report.sourceReports ?? [],
     crossSourceDuplicates: report.crossSourceDuplicates ?? 0,
     rankingId: rankingReference.id,
-    rulesVersion: "todas-situacoes-producao-periodo-duplo-sga-v4",
+    rulesVersion: "todas-situacoes-producao-periodo-sga-opcional-v5",
     createdBy: user.uid,
     createdByName: user.nome,
     createdAt: serverTimestamp(),

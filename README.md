@@ -1,4 +1,4 @@
-# Ranking BR — v0.2.9
+# Ranking BR — v0.2.10
 
 Versão funcional da plataforma de ranking das cooperativas BR, construída com Next.js, Vercel e Firebase.
 
@@ -6,8 +6,9 @@ Versão funcional da plataforma de ranking das cooperativas BR, construída com 
 
 - login real com Firebase Authentication;
 - perfis `DEV` e `ADMIN`;
-- leitura de dois relatórios **Gestão Adesão** no formato `.xls`, um do SGA Leves e outro do SGA Truck;
-- consolidação dos dois sistemas em um único ranking, somando placas e previsão por executivo e cooperativa;
+- leitura de um ou dois relatórios **Gestão Adesão** no formato `.xls`, dos sistemas SGA Leves e SGA Truck;
+- relatório Truck opcional quando não houver produção, aceitando também um arquivo válido contendo apenas o cabeçalho;
+- consolidação dos sistemas enviados em um único ranking, somando placas e previsão por executivo e cooperativa;
 - reconhecimento automático de executivos pelo campo `Voluntário`;
 - contagem de toda placa produzida no período, independentemente da situação atual;
 - 1 ponto por veículo e desempate pela maior previsão financeira;
@@ -98,7 +99,7 @@ As variáveis `NEXT_PUBLIC_` da configuração Web do Firebase podem permanecer 
 ## Primeiro uso recomendado
 
 1. abra **Equipes** e confira os códigos BR e os nomes das equipes;
-2. abra **Importar relatório** e selecione o Gestão Adesão `.xls` do SGA Leves e o do SGA Truck;
+2. abra **Importar relatório** e selecione pelo menos um Gestão Adesão `.xls`; envie Leves e Truck quando os dois tiverem produção;
 3. confira os  participantes identificados;
 4. confira a equipe identificada automaticamente pela cooperativa;
 5. confirme o fechamento;
@@ -118,7 +119,7 @@ npm run dev
 
 Depois acesse `http://localhost:3000`.
 
-## Regras fixadas para a v0.2.9
+## Regras fixadas para a v0.2.10
 
 - toda linha produzida no período entra no ranking, independentemente da situação atual do veículo;
 - situações como `ATIVO`, `C.A.T. - EVENTO COLISÃO`, pendências e demais estados informados pelo SGA são consideradas;
@@ -129,4 +130,5 @@ Depois acesse `http://localhost:3000`.
 - a cooperativa do relatório define a equipe do executivo e o agrupamento coletivo;
 - todas as cooperativas participam; códigos ainda não configurados ficam sinalizados até receberem um nome de equipe;
 - a equipe fica registrada como estava na data do fechamento;
-- o mesmo par de relatórios não pode ser confirmado duas vezes.
+- pelo menos um dos sistemas precisa ter produção válida; o outro arquivo pode ser omitido ou conter somente o cabeçalho;
+- o mesmo conjunto de relatórios não pode ser confirmado duas vezes.

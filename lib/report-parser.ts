@@ -60,46 +60,59 @@ function selectDuplicateRow(current: ReportRow, candidate: ReportRow) {
   return candidate.dataContrato > current.dataContrato ? candidate : current;
 }
 
-export async function mergeManagementReports(leves: ParsedReport, truck: ParsedReport): Promise<ParsedReport> {
-  if (leves.fileHash === truck.fileHash) {
+export async function mergeManagementReports(leves: ParsedReport | null, truck: ParsedReport | null): Promise<ParsedReport> {
+  const sources = [
+    leves ? { system: "LEVES" as const, report: leves } : null,
+    truck ? { system: "TRUCK" as const, report: truck } : null,
+  ].filter((source): source is { system: ReportSystem; report: ParsedReport } => source !== null);
+
+  if (!sources.length) {
+    throw new Error("Selecione pelo menos um relatório de Leves ou Truck.");
+  }
+
+  if (leves && truck && leves.fileHash === truck.fileHash) {
     throw new Error("Os relatórios de Leves e Truck são o mesmo arquivo. Selecione um arquivo diferente em cada campo.");
   }
 
   const uniqueRows = new Map<string, ReportRow>();
-  leves.rows.forEach((row) => uniqueRows.set(row.chassi || normalizeText(row.placa), row));
-
   let crossSourceDuplicates = 0;
-  truck.rows.forEach((row) => {
-    const key = row.chassi || normalizeText(row.placa);
-    const existing = uniqueRows.get(key);
-    if (existing) {
-      crossSourceDuplicates += 1;
-      uniqueRows.set(key, selectDuplicateRow(existing, row));
-    } else {
-      uniqueRows.set(key, row);
-    }
+  sources.forEach(({ report }, sourceIndex) => {
+    report.rows.forEach((row) => {
+      const key = row.chassi || normalizeText(row.placa);
+      const existing = uniqueRows.get(key);
+      if (existing) {
+        if (sourceIndex > 0) crossSourceDuplicates += 1;
+        uniqueRows.set(key, selectDuplicateRow(existing, row));
+      } else {
+        uniqueRows.set(key, row);
+      }
+    });
   });
 
   const rows = Array.from(uniqueRows.values());
   const dates = rows.map((row) => row.dataContrato).filter(Boolean).sort();
-  const fileHash = await hashText(`LEVES:${leves.fileHash}|TRUCK:${truck.fileHash}`);
+  if (!rows.length || !dates.length) {
+    throw new Error("O relatório selecionado não contém produção válida. Envie pelo menos um relatório com registros para gerar o ranking.");
+  }
+  const productionSources = sources.filter(({ report }) => report.rows.length > 0);
+  const fileHash = await hashText(productionSources.map(({ system, report }) => `${system}:${report.fileHash}`).join("|"));
 
   return {
-    fileName: `Leves: ${leves.fileName} | Truck: ${truck.fileName}`,
+    fileName: sources.map(({ system, report }) => `${system === "LEVES" ? "Leves" : "Truck"}: ${report.fileName}`).join(" | "),
     fileHash,
     rows,
     totalRows: rows.length,
-    duplicateRows: leves.duplicateRows + truck.duplicateRows + crossSourceDuplicates,
+    duplicateRows: sources.reduce((total, { report }) => total + report.duplicateRows, 0) + crossSourceDuplicates,
     crossSourceDuplicates,
     missingPlates: rows.filter((row) => !row.placa).length,
     periodStart: dates[0],
     periodEnd: dates[dates.length - 1],
-    generatedAt: [leves.generatedAt, truck.generatedAt].filter(Boolean).sort().at(-1),
-    generatedBy: [leves.generatedBy, truck.generatedBy].filter(Boolean).join(" / ") || undefined,
+    generatedAt: sources.map(({ report }) => report.generatedAt).filter((value): value is string => Boolean(value)).sort().at(-1),
+    generatedBy: sources.map(({ report }) => report.generatedBy).filter((value): value is string => Boolean(value)).join(" / ") || undefined,
     statusCounts: countBy(rows, (row) => row.situacao),
     adhesionCounts: countBy(rows, (row) => row.tipoAdesao),
     vehicleTypeCounts: countBy(rows, (row) => row.tipoVeiculo),
-    sourceReports: [summarizeSource(leves, "LEVES"), summarizeSource(truck, "TRUCK")],
+    sourceReports: sources.map(({ system, report }) => summarizeSource(report, system)),
   };
 }
 
@@ -184,8 +197,6 @@ export async function parseManagementReport(file: File): Promise<ParsedReport> {
   const rows = Array.from(uniqueRows.values());
   const dates = rows.map((row) => row.dataContrato).filter(Boolean).sort();
 
-  if (!rows.length || !dates.length) throw new Error("O relatório não contém registros válidos para processamento.");
-
   const metadataText = tables.map((table) => table.textContent ?? "").join(" ").replace(/\s+/g, " ");
   const metadataMatch = metadataText.match(/Usuário:\s*(\d{2}\/\d{2}\/\d{4})-(\d{2}:\d{2}:\d{2})-(.+?)\s*$/i);
 
@@ -196,8 +207,8 @@ export async function parseManagementReport(file: File): Promise<ParsedReport> {
     totalRows: rows.length,
     duplicateRows: rawRows.length - rows.length,
     missingPlates: rows.filter((row) => !row.placa).length,
-    periodStart: dates[0],
-    periodEnd: dates[dates.length - 1],
+    periodStart: dates[0] ?? "",
+    periodEnd: dates[dates.length - 1] ?? "",
     generatedAt: metadataMatch ? `${parseBrazilianDate(metadataMatch[1])}T${metadataMatch[2]}` : undefined,
     generatedBy: metadataMatch?.[3]?.trim(),
     statusCounts: countBy(rows, (row) => row.situacao),
