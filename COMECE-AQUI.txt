@@ -1,4 +1,4 @@
-RANKING BR — VERSÃO 0.2.10
+RANKING BR — VERSÃO 0.2.11
 
 1. GITHUB
 Substitua os arquivos do repositório pelo conteúdo desta pasta.
@@ -9,7 +9,7 @@ As regras não mudaram desde a v0.2.0. Não é necessário publicá-las novament
 Não ative o Firebase Storage.
 
 3. APPS SCRIPT
-Atualize o Code.gs apenas se quiser que o endpoint informe a versão 0.2.10.
+Atualize o Code.gs apenas se quiser que o endpoint informe a versão 0.2.11.
 A URL /exec permanece a mesma.
 
 4. VERCEL
@@ -18,8 +18,8 @@ As variáveis de ambiente atuais continuam válidas.
 
 5. TESTE
 Confira os códigos e nomes em Equipes e importe pelo menos um Gestão Adesão .xls.
-O arquivo Truck é opcional quando não houver produção e também pode ser enviado
-somente com o cabeçalho. Quando os dois arquivos forem enviados, os dados serão
+O arquivo Truck é opcional quando não houver produção e o resumo do SGA com
+"Total de veículos encontrados: 0" também é aceito. Quando os dois arquivos forem enviados, os dados serão
 somados em um único ranking e as equipes serão vinculadas automaticamente pela cooperativa.
 Toda placa produzida no período será considerada, independentemente da situação
 atual exibida no relatório.

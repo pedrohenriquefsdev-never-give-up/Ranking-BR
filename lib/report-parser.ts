@@ -126,12 +126,32 @@ export async function parseManagementReport(file: File): Promise<ParsedReport> {
 
   const documentNode = new DOMParser().parseFromString(html, "text/html");
   const tables = Array.from(documentNode.querySelectorAll("table"));
+  const metadataText = tables.map((table) => table.textContent ?? "").join(" ").replace(/\s+/g, " ");
+  const metadataMatch = metadataText.match(/Usuário:\s*(\d{2}\/\d{2}\/\d{4})-(\d{2}:\d{2}:\d{2})-(.+?)\s*$/i);
+  const explicitlyEmpty = /(?:^|\s)TOTAL DE VEICULOS ENCONTRADOS:\s*0(?:\D|$)/.test(normalizeText(metadataText));
   const reportTable = tables.find((table) => {
     const text = normalizeText(table.textContent ?? "");
     return text.includes("VOLUNTARIO") && text.includes("CHASSI") && text.includes("DATA CONTRATO");
   });
 
   if (!reportTable) {
+    if (explicitlyEmpty) {
+      return {
+        fileName: file.name,
+        fileHash,
+        rows: [],
+        totalRows: 0,
+        duplicateRows: 0,
+        missingPlates: 0,
+        periodStart: "",
+        periodEnd: "",
+        generatedAt: metadataMatch ? `${parseBrazilianDate(metadataMatch[1])}T${metadataMatch[2]}` : undefined,
+        generatedBy: metadataMatch?.[3]?.trim(),
+        statusCounts: {},
+        adhesionCounts: {},
+        vehicleTypeCounts: {},
+      };
+    }
     throw new Error("Não encontrei as colunas Voluntário, Chassi e Data Contrato no relatório.");
   }
 
@@ -196,9 +216,6 @@ export async function parseManagementReport(file: File): Promise<ParsedReport> {
   });
   const rows = Array.from(uniqueRows.values());
   const dates = rows.map((row) => row.dataContrato).filter(Boolean).sort();
-
-  const metadataText = tables.map((table) => table.textContent ?? "").join(" ").replace(/\s+/g, " ");
-  const metadataMatch = metadataText.match(/Usuário:\s*(\d{2}\/\d{2}\/\d{4})-(\d{2}:\d{2}:\d{2})-(.+?)\s*$/i);
 
   return {
     fileName: file.name,

@@ -1,4 +1,4 @@
-# Ranking BR — v0.2.10
+# Ranking BR — v0.2.11
 
 Versão funcional da plataforma de ranking das cooperativas BR, construída com Next.js, Vercel e Firebase.
 
@@ -7,7 +7,7 @@ Versão funcional da plataforma de ranking das cooperativas BR, construída com 
 - login real com Firebase Authentication;
 - perfis `DEV` e `ADMIN`;
 - leitura de um ou dois relatórios **Gestão Adesão** no formato `.xls`, dos sistemas SGA Leves e SGA Truck;
-- relatório Truck opcional quando não houver produção, aceitando também um arquivo válido contendo apenas o cabeçalho;
+- relatório Truck opcional quando não houver produção, incluindo o formato resumido do SGA que informa `Total de veículos encontrados: 0` sem exibir as colunas;
 - consolidação dos sistemas enviados em um único ranking, somando placas e previsão por executivo e cooperativa;
 - reconhecimento automático de executivos pelo campo `Voluntário`;
 - contagem de toda placa produzida no período, independentemente da situação atual;
@@ -119,7 +119,7 @@ npm run dev
 
 Depois acesse `http://localhost:3000`.
 
-## Regras fixadas para a v0.2.10
+## Regras fixadas para a v0.2.11
 
 - toda linha produzida no período entra no ranking, independentemente da situação atual do veículo;
 - situações como `ATIVO`, `C.A.T. - EVENTO COLISÃO`, pendências e demais estados informados pelo SGA são consideradas;
@@ -130,5 +130,5 @@ Depois acesse `http://localhost:3000`.
 - a cooperativa do relatório define a equipe do executivo e o agrupamento coletivo;
 - todas as cooperativas participam; códigos ainda não configurados ficam sinalizados até receberem um nome de equipe;
 - a equipe fica registrada como estava na data do fechamento;
-- pelo menos um dos sistemas precisa ter produção válida; o outro arquivo pode ser omitido ou conter somente o cabeçalho;
+- pelo menos um dos sistemas precisa ter produção válida; o outro arquivo pode ser omitido, conter somente o cabeçalho ou trazer o resumo oficial com total zero;
 - o mesmo conjunto de relatórios não pode ser confirmado duas vezes.

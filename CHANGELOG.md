@@ -1,5 +1,13 @@
 # Histórico de versões
 
+## v0.2.11 — Correção do formato vazio real do SGA Truck
+
+- reconhecimento do arquivo vazio real exportado pelo SGA Truck;
+- leitura do resumo `Total de veículos encontrados: 0` mesmo quando o sistema não gera o cabeçalho das colunas;
+- preservação da data, horário e usuário informados no relatório vazio para auditoria;
+- arquivos HTML sem o cabeçalho e sem a confirmação explícita de total zero continuam bloqueados;
+- validação realizada com o arquivo real `Truck Out.xls` de 06/10/2026.
+
 ## v0.2.10 — Hotfix para relatório Truck sem produção
 
 - processamento liberado com apenas um relatório, Leves ou Truck;
