@@ -1,4 +1,4 @@
-# Ranking BR — v0.2.11
+# Ranking BR — v0.2.12
 
 Versão funcional da plataforma de ranking das cooperativas BR, construída com Next.js, Vercel e Firebase.
 
@@ -119,7 +119,7 @@ npm run dev
 
 Depois acesse `http://localhost:3000`.
 
-## Regras fixadas para a v0.2.11
+## Regras fixadas para a v0.2.12
 
 - toda linha produzida no período entra no ranking, independentemente da situação atual do veículo;
 - situações como `ATIVO`, `C.A.T. - EVENTO COLISÃO`, pendências e demais estados informados pelo SGA são consideradas;

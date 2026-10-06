@@ -5,9 +5,51 @@ export function normalizeText(value: string) {
   return value
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\uFFFD/g, "")
     .replace(/\s+/g, " ")
     .trim()
     .toUpperCase();
+}
+
+function compactText(value: string) {
+  return normalizeText(value).replace(/[^A-Z0-9]/g, "");
+}
+
+function findColumnByPrefix(headers: string[], ...prefixes: string[]) {
+  return headers.findIndex((header) => {
+    const compactHeader = compactText(header);
+    return prefixes.some((prefix) => compactHeader.startsWith(prefix));
+  });
+}
+
+function findReportHeaderIndex(table: HTMLTableElement) {
+  return Array.from(table.querySelectorAll("tr")).findIndex((row) => {
+    const headers = Array.from(row.querySelectorAll("th,td")).map((cell) => cell.textContent ?? "");
+    return findColumnByPrefix(headers, "NOME") >= 0
+      && findColumnByPrefix(headers, "VOLUNT") >= 0
+      && findColumnByPrefix(headers, "CHASSI") >= 0
+      && findColumnByPrefix(headers, "DATACONTRATO") >= 0;
+  });
+}
+
+function hasZeroVehicleSummary(tables: HTMLTableElement[], metadataText: string) {
+  const normalizedMetadata = normalizeText(metadataText);
+  if (/(?:^|\s)TOTAL DE VEICULOS ENCONTRADOS:\s*0(?:\D|$)/.test(normalizedMetadata)) return true;
+
+  return tables.some((table) => Array.from(table.querySelectorAll("tr")).some((row) => {
+    const cells = Array.from(row.querySelectorAll("th,td")).map((cell) => cell.textContent ?? "");
+    const labelIndex = cells.findIndex((cell) => compactText(cell).startsWith("TOTALDEVEICULOSENCONTRADOS"));
+    if (labelIndex < 0) return false;
+    return cells.slice(labelIndex + 1).some((cell) => /^0(?:[.,]0+)?$/.test(cell.trim()));
+  }));
+}
+
+function decodeReport(buffer: ArrayBuffer) {
+  try {
+    return new TextDecoder("utf-8", { fatal: true }).decode(buffer);
+  } catch {
+    return new TextDecoder("windows-1252").decode(buffer);
+  }
 }
 
 function parseCurrency(value: string) {
@@ -118,7 +160,7 @@ export async function mergeManagementReports(leves: ParsedReport | null, truck: 
 
 export async function parseManagementReport(file: File): Promise<ParsedReport> {
   const [buffer, fileHash] = await Promise.all([file.arrayBuffer(), hashFile(file)]);
-  const html = new TextDecoder("windows-1252").decode(buffer);
+  const html = decodeReport(buffer);
 
   if (!/<table[\s>]/i.test(html)) {
     throw new Error("Este arquivo não segue o layout Gestão Adesão exportado pelo sistema.");
@@ -128,11 +170,8 @@ export async function parseManagementReport(file: File): Promise<ParsedReport> {
   const tables = Array.from(documentNode.querySelectorAll("table"));
   const metadataText = tables.map((table) => table.textContent ?? "").join(" ").replace(/\s+/g, " ");
   const metadataMatch = metadataText.match(/Usuário:\s*(\d{2}\/\d{2}\/\d{4})-(\d{2}:\d{2}:\d{2})-(.+?)\s*$/i);
-  const explicitlyEmpty = /(?:^|\s)TOTAL DE VEICULOS ENCONTRADOS:\s*0(?:\D|$)/.test(normalizeText(metadataText));
-  const reportTable = tables.find((table) => {
-    const text = normalizeText(table.textContent ?? "");
-    return text.includes("VOLUNTARIO") && text.includes("CHASSI") && text.includes("DATA CONTRATO");
-  });
+  const explicitlyEmpty = hasZeroVehicleSummary(tables, metadataText);
+  const reportTable = tables.find((table) => findReportHeaderIndex(table) >= 0);
 
   if (!reportTable) {
     if (explicitlyEmpty) {
@@ -156,26 +195,22 @@ export async function parseManagementReport(file: File): Promise<ParsedReport> {
   }
 
   const tableRows = Array.from(reportTable.querySelectorAll("tr"));
-  const headerIndex = tableRows.findIndex((row) => {
-    const cells = Array.from(row.querySelectorAll("th,td")).map((cell) => normalizeText(cell.textContent ?? ""));
-    return cells.includes("NOME") && cells.includes("VOLUNTARIO") && cells.includes("CHASSI");
-  });
+  const headerIndex = findReportHeaderIndex(reportTable);
 
   if (headerIndex < 0) throw new Error("O cabeçalho do relatório Gestão Adesão não foi reconhecido.");
 
-  const headers = Array.from(tableRows[headerIndex].querySelectorAll("th,td")).map((cell) => normalizeText(cell.textContent ?? ""));
-  const column = (label: string) => headers.indexOf(normalizeText(label));
+  const headers = Array.from(tableRows[headerIndex].querySelectorAll("th,td")).map((cell) => cell.textContent ?? "");
   const indexes = {
-    nome: column("Nome"),
-    placa: column("Placa"),
-    tipoVeiculo: column("Tipo Veículo"),
-    cooperativa: column("Cooperativa"),
-    executivo: column("Voluntário"),
-    situacao: column("Situação Veículo"),
-    data: column("Data Contrato"),
-    tipoAdesao: column("Tipo Adesão"),
-    previsao: headers.findIndex((header) => header.startsWith("VALOR PREVISAO RATEIO")),
-    chassi: column("Chassi"),
+    nome: findColumnByPrefix(headers, "NOME"),
+    placa: findColumnByPrefix(headers, "PLACA"),
+    tipoVeiculo: findColumnByPrefix(headers, "TIPOVE"),
+    cooperativa: findColumnByPrefix(headers, "COOPERATIVA"),
+    executivo: findColumnByPrefix(headers, "VOLUNT"),
+    situacao: findColumnByPrefix(headers, "SITUA"),
+    data: findColumnByPrefix(headers, "DATACONTRATO"),
+    tipoAdesao: findColumnByPrefix(headers, "TIPOADES"),
+    previsao: findColumnByPrefix(headers, "VALORPREV"),
+    chassi: findColumnByPrefix(headers, "CHASSI"),
   };
 
   if (Object.values(indexes).some((index) => index < 0)) {

@@ -1,5 +1,14 @@
 # Histórico de versões
 
+## v0.2.12 — Leitura robusta dos relatórios reais Leves + Truck
+
+- aceita o relatório Truck vazio exatamente como exportado pelo SGA, mesmo sem cabeçalho de produção;
+- reconhece estruturalmente o resumo de zero veículos, sem depender de uma frase única;
+- trata relatórios HTML `.xls` em UTF-8 e Windows-1252;
+- tolera caracteres de acentuação corrompidos nos nomes das colunas;
+- informa no erro se o problema veio do arquivo de Leves ou do arquivo de Truck;
+- validação preparada com o par real `Leves out.xls` + `Truck Out(1).xls` de 06/10/2026.
+
 ## v0.2.11 — Correção do formato vazio real do SGA Truck
 
 - reconhecimento do arquivo vazio real exportado pelo SGA Truck;

@@ -51,14 +51,24 @@ export function ImportPanel() {
     if (truckInputRef.current) truckInputRef.current.value = "";
   };
 
+  async function parseSourceFile(file: File | null, source: "SGA Leves" | "SGA Truck") {
+    if (!file?.size) return null;
+    try {
+      return await parseManagementReport(file);
+    } catch (caught) {
+      const message = caught instanceof Error ? caught.message : "Não foi possível ler o arquivo.";
+      throw new Error(`${source} (${file.name}): ${message}`);
+    }
+  }
+
   async function processFiles() {
     if (!levesFile && !truckFile) return;
     setProcessing(true);
     setError("");
     try {
       const [levesReport, truckReport] = await Promise.all([
-        levesFile?.size ? parseManagementReport(levesFile) : Promise.resolve(null),
-        truckFile?.size ? parseManagementReport(truckFile) : Promise.resolve(null),
+        parseSourceFile(levesFile, "SGA Leves"),
+        parseSourceFile(truckFile, "SGA Truck"),
       ]);
       const parsed = await mergeManagementReports(levesReport, truckReport);
       const [latest, executiveItems, teamItems] = configured
